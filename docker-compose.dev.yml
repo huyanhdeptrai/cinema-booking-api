@@ -3,7 +3,8 @@ services:
     image: mysql:8.0
     container_name: cinema-mysql-dev
     restart: always
-    environment:
+
+    environment: #cấu hình biến môi trường khởi đầu cho mysql
       MYSQL_ROOT_PASSWORD: rootpassword
       MYSQL_DATABASE: cinema_db
       MYSQL_USER: cinema_user
@@ -11,7 +12,7 @@ services:
     ports:
       - "3306:3306"
     volumes:
-      - mysql_dev_data:/var/lib/mysql
+      - mysql_dev_data:/var/lib/mysql #gắn thư mục chứa dữ liệu nội bộ của mysql vào volume máy thật chống mất dữ liệu
 
 volumes:
-  mysql_dev_data:
+  mysql_dev_data: #khai báo name volume do docker quản lý trên ổ cứng
