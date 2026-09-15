@@ -18,7 +18,7 @@ import java.util.List;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
-    //1. xử lý các lỗi nghiệp vụ do ta chủ động ném ra (vd: EmailAlreadyExistsException)
+    //1. xử lý các lỗi nghiệp vụ do ta chủ động ném ra (vd: EmailAlreadyExistsException với AppException)
     @ExceptionHandler(AppException.class) //bắt mọi ngoại lệ thuộc lớp AppException và các lớp con kế thừa từ nó
     public ResponseEntity<ErrorResponse> handleAppException(AppException ex, HttpServletRequest request) {
         log.warn("Business error [{}]: {}", ex.getCode(), ex.getMessage()); //ghi log cảnh báo về lỗi nghiệp vụ do người dùng
@@ -32,7 +32,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(ex.getStatus()).body(response);
     }
 
-    //2. Xử lý lỗi validation dữ liệu đầu vào
+    //2. Xử lý lỗi validation dữ liệu đầu vào (HTTP 400)
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidationException(MethodArgumentNotValidException ex, HttpServletRequest request) {
         List<FieldErrorDetail> fieldErrors = ex.getBindingResult()
@@ -53,7 +53,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
-    // 3. Xử lý lỗi đăng nhập sai thông tin (HTTP 401: INVALID_CREDENTIALS)
+    // 3. Xử lý lỗi đăng nhập sai thông tin HTTP 401: INVALID_CREDENTIALS
     @ExceptionHandler({BadCredentialsException.class, AuthenticationException.class})
     public ResponseEntity<ErrorResponse> handleAuthenticationException(Exception ex, HttpServletRequest request) {
         ErrorResponse response = ErrorResponse.of(
@@ -65,7 +65,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
     }
 
-    // 4. Xử lý lỗi không đủ quyền truy cập (HTTP 403: FORBIDDEN)
+    // 4. Xử lý lỗi không đủ quyền truy cập HTTP 403: FORBIDDEN
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ErrorResponse> handleAccessDeniedException(AccessDeniedException ex, HttpServletRequest request) {
         ErrorResponse response = ErrorResponse.of(
@@ -77,7 +77,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
     }
 
-    // 5. Xử lý các lỗi hệ thống không mong muốn còn lại (HTTP 500)
+    // 5. Xử lý các lỗi hệ thống không mong muốn còn lại HTTP 500
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnexpectedException(Exception ex, HttpServletRequest request) {
         log.error("Unexpected internal server error at {}: ", request.getRequestURI(), ex);
