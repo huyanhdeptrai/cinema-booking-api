@@ -18,20 +18,18 @@ public record ErrorResponse(
         List<FieldErrorDetail> fieldErrors // danh sách chi tiết các lỗi kiểm tra dữ liệu đầu vào
 ) {
 
-    /*
-     Static Factory Method dùng cho các lỗi nghiệp vụ hoặc hệ thống thông thường (không có lỗi field validation).
-     Tự động lấy Instant.now() làm mốc thời gian và đặt fieldErrors là null
-     VD: 401: INVALID_CREDENTIALS, 404: BOOKING_NOT_FOUND, 409: EMAIL_ALREADY_EXISTS
-     */
+
+     //Static Factory Method dùng cho các lỗi nghiệp vụ hoặc hệ thống thông thường (không có lỗi field validation).
+     //Tự động lấy Instant.now() làm mốc thời gian và đặt fieldErrors là null
+     //VD: 401: INVALID_CREDENTIALS, 404: BOOKING_NOT_FOUND, 409: EMAIL_ALREADY_EXISTS
     public static ErrorResponse of(int status, String code, String message, String path) {
         return new ErrorResponse(Instant.now(), status, code, message, path, null);
     }
 
-    /*
-     Static Factory Method dùng riêng cho các trường hợp kiểm tra tính hợp lệ dữ liệu
-     Nhận vào danh sách chi tiết các trường bị lỗi để client biết chính xác cần sửa ô dữ liệu nào
-     VD: 400: Gửi email sai định dạng, mật khẩu để trống, số ghế bị âm...
-     */
+
+     //Static Factory Method dùng riêng cho các trường hợp kiểm tra tính hợp lệ dữ liệu
+     //Nhận vào danh sách chi tiết các trường bị lỗi để client biết chính xác cần sửa ô dữ liệu nào
+     //VD: 400: Gửi email sai định dạng, mật khẩu để trống, số ghế bị âm...
     public static ErrorResponse of(int status, String code, String message, String path, List<FieldErrorDetail> fieldErrors) {
         return new ErrorResponse(Instant.now(), status, code, message, path, fieldErrors);
     }
