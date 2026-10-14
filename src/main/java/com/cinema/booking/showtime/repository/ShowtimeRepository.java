@@ -56,4 +56,10 @@ public interface ShowtimeRepository extends JpaRepository<Showtime, Long> {
 
     // 4. kiểm tra phòng chiếu đã có suất chiếu nào chưa
     boolean existsByAuditoriumId(Long auditoriumId);
+
+    // khóa Pessimistic Lock
+    // dùng để chống tranh chấp đồng thời khi người dùng chọn ghế
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("SELECT s FROM Showtime s WHERE s.id = :id")
+    java.util.Optional<Showtime> findByIdWithLock(@org.springframework.data.repository.query.Param("id") Long id);
 }
