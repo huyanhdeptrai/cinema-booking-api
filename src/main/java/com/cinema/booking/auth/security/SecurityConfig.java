@@ -58,6 +58,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/movies/**", "/api/showtimes/**").permitAll()
                         // Các API quản trị bắt buộc quyền ADMIN
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        //Các API đặt vé chỉ cho phép CUSTOMER
+                        .requestMatchers("/api/bookings/**").hasRole("CUSTOMER")
                         // Các API khác (như booking) yêu cầu phải đăng nhập
                         .anyRequest().authenticated()
                 )
