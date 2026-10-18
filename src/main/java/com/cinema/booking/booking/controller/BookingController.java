@@ -4,6 +4,7 @@ import com.cinema.booking.booking.dto.BookingRequest;
 import com.cinema.booking.booking.dto.BookingResponse;
 import com.cinema.booking.booking.service.BookingService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -26,6 +27,10 @@ public class BookingController {
     // Đặt vé (nhiều ghế)
     @PostMapping
     @Operation(summary = "Đặt vé xem phim (chọn nhiều ghế)")
+    @ApiResponse(responseCode = "201", description = "Đặt vé thành công")
+    @ApiResponse(responseCode = "400", description = "Dữ liệu không hợp lệ hoặc suất chiếu đã bắt đầu")
+    @ApiResponse(responseCode = "401", description = "Chưa đăng nhập hoặc token không hợp lệ")
+    @ApiResponse(responseCode = "409", description = "Ghế đã có người đặt trước (SEAT_ALREADY_BOOKED)")
     public ResponseEntity<BookingResponse> createBooking(
             @AuthenticationPrincipal UserDetails userDetails,
             @Valid @RequestBody BookingRequest request
@@ -56,6 +61,9 @@ public class BookingController {
     // hủy vé
     @PatchMapping("/{id}/cancel")
     @Operation(summary = "Hủy vé đã đặt (chỉ được hủy trước giờ chiếu)")
+    @ApiResponse(responseCode = "200", description = "Hủy vé thành công, ghế được giải phóng")
+    @ApiResponse(responseCode = "404", description = "Không tìm thấy vé hoặc vé không thuộc về bạn")
+    @ApiResponse(responseCode = "409", description = "Suất chiếu đã bắt đầu, không thể hủy vé")
     public ResponseEntity<BookingResponse> cancelBooking(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long id
