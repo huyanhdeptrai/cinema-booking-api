@@ -1,0 +1,613 @@
+{
+  "info": {
+    "_postman_id": "0dd542fb-1f57-45e7-8431-7d90b9e845a9",
+    "name": "cinema booking api",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "58108292",
+    "_collection_link": "https://go.postman.co/collection/58108292-0dd542fb-1f57-45e7-8431-7d90b9e845a9?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "01-Auth",
+      "item": [
+        {
+          "name": "Register Customer",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"email\": \"customer@gmail.com\",\r\n  \"password\": \"Password123@\",\r\n  \"fullName\": \"Nguyen Van A\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login Customer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Login Customer thành công và lưu token\", function () {\r\n    pm.response.to.have.status(200);\r\n\r\n    const data = pm.response.json();\r\n    pm.expect(data.accessToken).to.be.a(\"string\").and.not.empty;\r\n    pm.expect(data.user.role).to.eql(\"CUSTOMER\");\r\n\r\n    pm.collectionVariables.set(\"customerToken\", data.accessToken);\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"email\": \"customer@gmail.com\",\r\n  \"password\": \"Password123@\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Tự động lưu và kiểm tra adminToken\", function () {\r\n    pm.response.to.have.status(200);\r\n\r\n    const data = pm.response.json();\r\n    pm.expect(data.accessToken).to.be.a(\"string\").and.not.empty;\r\n\r\n    pm.collectionVariables.set(\"adminToken\", data.accessToken);\r\n\r\n    pm.expect(pm.collectionVariables.get(\"adminToken\"))\r\n        .to.eql(data.accessToken);\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@cinema.com\",\n  \"password\": \"Admin@123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02-Admin Management",
+      "item": [
+        {
+          "name": "Tạo phòng chiếu & sinh ghế",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Tạo phòng và lưu auditoriumId\", function () {\r\n    pm.response.to.have.status(201);\r\n\r\n    const data = pm.response.json();\r\n    pm.expect(data.id).to.exist;\r\n    pm.expect(data.totalSeats).to.eql(15);\r\n\r\n    pm.collectionVariables.set(\"auditoriumId\", data.id);\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"name\": \"Phòng Chiếu 02\",\r\n  \"rowCount\": 3,\r\n  \"seatsPerRow\": 5\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/auditoriums",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "auditoriums"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Tạo phim mới",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Tạo phim và lưu movieId\", function () {\r\n    pm.response.to.have.status(201);\r\n\r\n    const data = pm.response.json();\r\n    pm.expect(data.id).to.exist;\r\n\r\n    pm.collectionVariables.set(\"movieId\", data.id);\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"title\": \"Phim Demo Postman\",\r\n  \"description\": \"Phim dùng để kiểm thử đặt vé\",\r\n  \"durationMinutes\": 120,\r\n  \"ageRating\": \"T13\",\r\n  \"releaseDate\": \"{{showDate}}\",\r\n  \"status\": \"NOW_SHOWING\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/movies",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "movies"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Tạo suất chiếu",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Tạo suất chiếu và lưu showtimeId\", function () {\r\n    pm.response.to.have.status(201);\r\n\r\n    const data = pm.response.json();\r\n    pm.expect(data.id).to.exist;\r\n\r\n    pm.collectionVariables.set(\"showtimeId\", data.id);\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"movieId\": {{movieId}},\r\n  \"auditoriumId\": {{auditoriumId}},\r\n  \"startTime\": \"{{showDate}}T20:00:00\",\r\n  \"price\": 90000\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/showtimes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "showtimes"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{adminToken}}",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "name": "03-Public Discovery",
+      "item": [
+        {
+          "name": "Xem danh sách phim",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Lấy danh sách phim thành công\", function () {\r\n    pm.response.to.have.status(200);\r\n    pm.expect(pm.response.json()).to.be.an(\"array\");\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/movies",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "movies"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Tra cứu suất chiếu",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Tìm thấy suất chiếu vừa tạo\", function () {\r\n    pm.response.to.have.status(200);\r\n\r\n    const data = pm.response.json();\r\n    const showtimeId = Number(\r\n        pm.collectionVariables.get(\"showtimeId\")\r\n    );\r\n\r\n    pm.expect(data.some(s => s.id === showtimeId)).to.eql(true);\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/showtimes?movieId={{movieId}}&date={{showDate}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "showtimes"
+              ],
+              "query": [
+                {
+                  "key": "movieId",
+                  "value": "{{movieId}}"
+                },
+                {
+                  "key": "date",
+                  "value": "{{showDate}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Xem sơ đồ ghế và trạng thái AVAILABLE",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Tự lưu hai ghế AVAILABLE\", function () {\r\n    pm.response.to.have.status(200);\r\n\r\n    const seats = pm.response.json()\r\n        .filter(s => s.status === \"AVAILABLE\");\r\n\r\n    pm.expect(seats.length).to.be.at.least(2);\r\n\r\n    pm.collectionVariables.set(\"seatId1\", seats[0].seatId);\r\n    pm.collectionVariables.set(\"seatId2\", seats[1].seatId);\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/showtimes/{{showtimeId}}/seats",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "showtimes",
+                "{{showtimeId}}",
+                "seats"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "04-Customer Booking",
+      "item": [
+        {
+          "name": "Đặt hai ghế hợp lệ",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Đặt vé thành công và lưu bookingId\", function () {\r\n    pm.response.to.have.status(201);\r\n\r\n    const data = pm.response.json();\r\n    pm.expect(data.id).to.exist;\r\n\r\n    pm.collectionVariables.set(\"bookingId\", data.id);\r\n});\r\n\r\npm.test(\"Hai ghế có tổng tiền 180000\", function () {\r\n    const data = pm.response.json();\r\n\r\n    pm.expect(data.items).to.have.lengthOf(2);\r\n    pm.expect(Number(data.totalAmount)).to.eql(180000);\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"showtimeId\": {{showtimeId}},\r\n  \"seatIds\": [{{seatId1}}, {{seatId2}}]\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/bookings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "bookings"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Test đặt lại đúng ghế vừa đặt",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Từ chối đặt ghế đã được đặt\", function () {\r\n    pm.response.to.have.status(409);\r\n\r\n    pm.expect(pm.response.json().code)\r\n        .to.eql(\"SEAT_ALREADY_BOOKED\");\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"showtimeId\": {{showtimeId}},\r\n  \"seatIds\": [{{seatId1}}, {{seatId2}}]\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/bookings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "bookings"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Xem danh sách vé của tôi",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Danh sách có vé vừa đặt\", function () {\r\n    pm.response.to.have.status(200);\r\n\r\n    const bookings = pm.response.json();\r\n    const bookingId = Number(\r\n        pm.collectionVariables.get(\"bookingId\")\r\n    );\r\n\r\n    pm.expect(bookings.some(b => b.id === bookingId))\r\n        .to.eql(true);\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/bookings/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "bookings",
+                "me"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Xem chi tiết vé của tôi",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Trả đúng vé vừa đặt\", function () {\r\n    pm.response.to.have.status(200);\r\n\r\n    const data = pm.response.json();\r\n\r\n    pm.expect(data.id).to.eql(\r\n        Number(pm.collectionVariables.get(\"bookingId\"))\r\n    );\r\n    pm.expect(data.items).to.have.lengthOf(2);\r\n    pm.expect(Number(data.totalAmount)).to.eql(180000);\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/bookings/{{bookingId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "bookings",
+                "{{bookingId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Hủy vé trước giờ chiếu",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Hủy vé thành công\", function () {\r\n    pm.response.to.have.status(200);\r\n\r\n    pm.expect(pm.response.json().status).to.eql(\"CANCELLED\");\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/bookings/{{bookingId}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "bookings",
+                "{{bookingId}}",
+                "cancel"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Kiểm tra sơ đồ ghế sau khi hủy",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Hai ghế đã trở lại AVAILABLE\", function () {\r\n    pm.response.to.have.status(200);\r\n\r\n    const seats = pm.response.json();\r\n    const ids = [\r\n        Number(pm.collectionVariables.get(\"seatId1\")),\r\n        Number(pm.collectionVariables.get(\"seatId2\"))\r\n    ];\r\n\r\n    ids.forEach(id => {\r\n        const seat = seats.find(s => s.seatId === id);\r\n\r\n        pm.expect(seat, \"Tìm thấy ghế \" + id).to.exist;\r\n        pm.expect(seat.status).to.eql(\"AVAILABLE\");\r\n    });\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/showtimes/{{showtimeId}}/seats",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "showtimes",
+                "{{showtimeId}}",
+                "seats"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{customerToken}}",
+            "type": "string"
+          }
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": ""
+    },
+    {
+      "key": "adminToken",
+      "value": ""
+    },
+    {
+      "key": "customerToken",
+      "value": ""
+    },
+    {
+      "key": "bookingId",
+      "value": ""
+    },
+    {
+      "key": "movieId",
+      "value": ""
+    },
+    {
+      "key": "showtimeId",
+      "value": ""
+    },
+    {
+      "key": "auditoriumId",
+      "value": ""
+    },
+    {
+      "key": "showDate",
+      "value": ""
+    },
+    {
+      "key": "seatId1",
+      "value": ""
+    },
+    {
+      "key": "seatId2",
+      "value": ""
+    }
+  ]
+}
