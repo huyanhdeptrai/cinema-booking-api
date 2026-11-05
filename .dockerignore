@@ -1,0 +1,14 @@
+# bỏ qua lịch sử git và cấu hình ide
+.git/
+.idea/
+.vscode/
+*.iml
+
+# bỏ qua kết quả build và log trên máy
+target/
+*.log
+
+# không đưa cấu hình môi trường vào build context
+.env
+.env.*
+!.env.example

@@ -23,23 +23,25 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.ZoneId;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class ShowtimeService {
 
+    // khoảng nghỉ tối thiểu giữa hai suất trong cùng phòng
+    private static final int MINIMUM_SHOWTIME_GAP_MINUTES = 15;
+
     private final ShowtimeRepository showtimeRepository;
     private final ShowtimeSeatRepository showtimeSeatRepository;
     private final MovieRepository movieRepository;
     private final AuditoriumRepository auditoriumRepository;
     private final SeatRepository seatRepository;
-
-    private static final ZoneId VIETNAM_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
+    private final Clock clock;
 
     // 1. tạo suất chiếu mới và tự động sinh tồn kho ghế
     @Transactional
@@ -55,8 +57,10 @@ public class ShowtimeService {
         LocalDateTime endTime = startTime.plusMinutes(movie.getDurationMinutes());
 
         //b4 kiểm tra xung đột lịch với khoảng đệm 15p
-        LocalDateTime startThreshold = startTime.minusMinutes(15);
-        LocalDateTime endThreshold = endTime.plusMinutes(15);
+        LocalDateTime startThreshold =
+                startTime.minusMinutes(MINIMUM_SHOWTIME_GAP_MINUTES);
+        LocalDateTime endThreshold =
+                endTime.plusMinutes(MINIMUM_SHOWTIME_GAP_MINUTES);
 
         boolean isOverlap = showtimeRepository.existsOverlap(
                 auditorium.getId(),
@@ -97,7 +101,7 @@ public class ShowtimeService {
     // 2. tra cứu suất chiếu công khai ( lọc theo phim và ngày )
     @Transactional(readOnly = true)
     public List<ShowtimeResponse> getPublicShowtimes(Long movieId, LocalDate date) {
-        LocalDate targetDate = (date != null) ? date : LocalDate.now(VIETNAM_ZONE);
+        LocalDate targetDate = (date != null) ? date : LocalDate.now(clock);
         LocalDateTime startOfDay = targetDate.atStartOfDay();
         LocalDateTime endOfDay = targetDate.atTime(LocalTime.MAX);
         return showtimeRepository.findActiveShowtimes(movieId, startOfDay, endOfDay).stream().map(ShowtimeResponse::from).toList();
@@ -128,9 +132,11 @@ public class ShowtimeService {
     // 6. huỷ suất chiếu (admin)
     @Transactional
     public ShowtimeResponse cancelShowtime(Long id) {
-        Showtime showtime = showtimeRepository.findById(id)
+        Showtime showtime = showtimeRepository.findByIdWithLock(id)
                 .orElseThrow(() -> new ShowtimeNotFoundException(id));
+
         showtime.setStatus(ShowtimeStatus.CANCELLED);
+
         return ShowtimeResponse.from(showtime);
     }
 }

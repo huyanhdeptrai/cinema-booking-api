@@ -21,9 +21,20 @@ public record BookingResponse(
         BookingStatus status,
         LocalDateTime createdAt,
         LocalDateTime cancelledAt,
-        List<BookingItemResponse> items
+        List<BookingItemResponse> items,
+        String paymentUrl
 ) {
     public static BookingResponse from(Booking booking) {
+        return from(booking, null);
+    }
+
+    // gắn paymentUrl sau khi đã dựng response (tránh đọc lazy ngoài transaction)
+    public BookingResponse withPaymentUrl(String url) {
+        return new BookingResponse(id, bookingCode, showtimeId, movieTitle, auditoriumName,
+                startTime, totalAmount, status, createdAt, cancelledAt, items, url);
+    }
+
+    public static BookingResponse from(Booking booking, String paymentUrl) {
         List<BookingItemResponse> itemResponses = booking.getItems().stream()
                 .map(BookingItemResponse::from)
                 .toList();
@@ -39,7 +50,8 @@ public record BookingResponse(
                 booking.getStatus(),
                 booking.getCreatedAt(),
                 booking.getCancelledAt(),
-                itemResponses
+                itemResponses,
+                paymentUrl
         );
     }
 }

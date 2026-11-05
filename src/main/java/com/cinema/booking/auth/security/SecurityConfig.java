@@ -54,6 +54,8 @@ public class SecurityConfig {
                         // Cho phép truy cập công khai Auth và tài liệu Swagger
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/api-docs/**", "/v3/api-docs/**").permitAll()
+                        // Cho phép Simulator gọi các webhook callback không cần JWT
+                        .requestMatchers("/vinatticonnect/v2/**").permitAll()
                         // Cho phép xem phim và lịch chiếu công khai (cho các tuần sau)
                         .requestMatchers(HttpMethod.GET, "/api/movies/**", "/api/showtimes/**").permitAll()
                         // Các API quản trị bắt buộc quyền ADMIN
@@ -62,6 +64,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/bookings/**").hasRole("CUSTOMER")
                         // Các API khác (như booking) yêu cầu phải đăng nhập
                         .anyRequest().authenticated()
+
                 )
                 // Đặt JwtFilter trước UsernamePasswordAuthenticationFilter
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

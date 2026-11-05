@@ -1,6 +1,7 @@
 //thuật toán tự sinh ghế
 package com.cinema.booking.cinema.service;
 
+import com.cinema.booking.cinema.dto.UpdateAuditoriumRequest;
 import com.cinema.booking.cinema.dto.AuditoriumRequest;
 import com.cinema.booking.cinema.dto.AuditoriumResponse;
 import com.cinema.booking.cinema.dto.SeatResponse;
@@ -43,20 +44,23 @@ public class AuditoriumService {
                 .build();
         Auditorium savedAuditorium = auditoriumRepository.save(auditorium);
 
-        // thuật toán tự sinh ghế
-        // hàng 1 tương ứng A,..., hàng 26 tương ứng z
+        // sinh mã ghế theo hàng, ví dụ A1, A2, B1
         List<Seat> seats = new ArrayList<>();
-        for (int r = 1; r <= request.rowCount(); r++) {
-            char rowChar = (char) ('A' + (r - 1));
+
+        for (int rowNumber = 1; rowNumber <= request.rowCount(); rowNumber++) {
+            char rowChar = (char) ('A' + (rowNumber - 1));
             String rowLabel = String.valueOf(rowChar);
-            for (int c = 1; c <= request.seatsPerRow(); c++) {
-                String seatCode = rowLabel + c; // vd A1, A2, B1
+
+            for (int seatNumber = 1; seatNumber <= request.seatsPerRow(); seatNumber++) {
+                String seatCode = rowLabel + seatNumber;
+
                 Seat seat = Seat.builder()
                         .auditorium(savedAuditorium)
                         .rowLabel(rowLabel)
-                        .seatNumber(c)
+                        .seatNumber(seatNumber)
                         .seatCode(seatCode)
                         .build();
+
                 seats.add(seat);
             }
         }
@@ -97,9 +101,11 @@ public class AuditoriumService {
     }
 
     // 5. Cập nhật phòng chiếu (PUT /api/admin/auditoriums/{id})
-    // quy tắc không cho đổi kích thước nếu sau này phòng đã có suất chiếu
     @Transactional
-    public AuditoriumResponse updateAuditorium(Long id, AuditoriumRequest request) {
+    public AuditoriumResponse updateAuditorium(
+            Long id,
+            UpdateAuditoriumRequest request
+    ) {
         // tìm phòng cần sửa
         Auditorium auditorium = auditoriumRepository.findById(id)
                 .orElseThrow(() -> new AuditoriumNotFoundException(id));
