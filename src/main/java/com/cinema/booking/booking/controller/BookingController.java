@@ -2,7 +2,7 @@ package com.cinema.booking.booking.controller;
 
 import com.cinema.booking.booking.dto.BookingRequest;
 import com.cinema.booking.booking.dto.BookingResponse;
-import com.cinema.booking.booking.service.BookingService;
+import com.cinema.booking.booking.service.BookingUseCase;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -23,7 +23,7 @@ import java.util.List;
 @Tag(name = "Booking", description = "Các API đặt vé và quản lý vé dành cho khách hàng")
 @SecurityRequirement(name = "bearerAuth")
 public class BookingController {
-    private final BookingService bookingService;
+    private final BookingUseCase bookingService;
     // Đặt vé (nhiều ghế)
     @PostMapping
     @Operation(summary = "Đặt vé xem phim (chọn nhiều ghế)")

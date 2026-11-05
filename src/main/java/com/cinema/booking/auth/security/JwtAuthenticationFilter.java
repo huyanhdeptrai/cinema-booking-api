@@ -57,4 +57,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
         return null;
     }
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        // Bỏ qua lọc JWT đối với các endpoint webhook của Vinatti
+        return request.getServletPath().startsWith("/vinatticonnect/v2/");
+    }
 }

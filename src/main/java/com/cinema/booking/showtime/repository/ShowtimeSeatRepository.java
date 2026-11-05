@@ -4,6 +4,10 @@ package com.cinema.booking.showtime.repository;
 import com.cinema.booking.showtime.entity.ShowtimeSeat;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
@@ -22,4 +26,16 @@ public interface ShowtimeSeatRepository extends JpaRepository<ShowtimeSeat, Long
 
      // 2. tìm danh sách ghế thuộc một booking, phục vụ giải phóng ghế khi hủy vé
      java.util.List<ShowtimeSeat> findByBookingId(Long bookingId);
+
+     // ta lấy ghế theo seat.id tăng dần, cùng cách sắp xếp với luồng đặt vé.
+     @Lock(LockModeType.PESSIMISTIC_WRITE)
+     @Query("""
+    SELECT ss
+    FROM ShowtimeSeat ss
+    WHERE ss.booking.id = :bookingId
+    ORDER BY ss.seat.id ASC
+        """)
+     List<ShowtimeSeat> findByBookingIdWithLock(
+             @Param("bookingId") Long bookingId
+     );
 }

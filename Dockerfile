@@ -1,24 +1,28 @@
-# 1. build mã nguồn ra file .jar
+# build ứng dụng bằng maven và jdk 21
 FROM maven:3.9.9-eclipse-temurin-21 AS build
 WORKDIR /app
 
-# copy pom.xml và tải trước các thư viện (để tối ưu cache của Docker)
+# tải thư viện trước để tận dụng cache khi chỉ sửa code
 COPY pom.xml .
 RUN mvn dependency:go-offline -B
 
-# copy toàn bộ mã nguồn vào và tiến hành đóng gói (bỏ qua chạy test khi build image để nhanh hơn)
 COPY src ./src
+
+# test được chạy riêng trước khi build image
 RUN mvn clean package -DskipTests
 
-# 2. tạo image siêu nhẹ để chạy ứng dụng
+# image chạy ứng dụng chỉ cần jre
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
-# copy file .jar vừa được build xong từ Giai đoạn 1 sang
-COPY --from=build /app/target/*.jar app.jar
+# tạo user riêng để chạy ứng dụng
+RUN addgroup -S appgroup \
+    && adduser -S appuser -G appgroup
 
-# mở cổng 8080 cho container
+COPY --from=build --chown=appuser:appgroup /app/target/*.jar app.jar
+
+USER appuser
+
 EXPOSE 8080
 
-# câu lệnh khởi chạy ứng dụng khi bật container
 ENTRYPOINT ["java", "-jar", "app.jar"]

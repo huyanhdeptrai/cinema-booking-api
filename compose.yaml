@@ -5,17 +5,17 @@ services:
     container_name: cinema-mysql
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?can khai bao DB_ROOT_PASSWORD trong .env}
       MYSQL_DATABASE: ${DB_NAME:-cinema_db}
       MYSQL_USER: ${DB_USER:-cinema_user}
-      MYSQL_PASSWORD: ${DB_PASSWORD:-cinema_password}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?can khai bao DB_PASSWORD trong .env}
     ports:
       - "${DB_PORT:-3306}:3306"
     volumes:
       - cinema_mysql_data:/var/lib/mysql
     healthcheck:
       # kiểm tra xem mysql đã thực sự sẵn sàng nhận kết nối hay chưa
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-rootpassword}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:?can khai bao DB_ROOT_PASSWORD trong .env}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -31,14 +31,26 @@ services:
     ports:
       - "${APP_PORT:-8080}:8080"
     environment:
-      # trỏ tới mysql-db thay vì localhost
+      # chọn cấu hình dành cho docker
+      SPRING_PROFILES_ACTIVE: docker
+
+      # các container kết nối với nhau qua tên service
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/${DB_NAME:-cinema_db}?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-cinema_user}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-cinema_password}
-      JWT_SECRET: ${JWT_SECRET:-9a7f5c2d8b1e4a6f0c3e5d7b9a1f2c4e6a8b0d2f4c6e8a0b2d4f6c8e0a2b4c6e}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?can khai bao DB_PASSWORD trong .env}
+
+      JWT_SECRET: ${JWT_SECRET:?can khai bao JWT_SECRET trong .env}
+
+      # cổng thanh toán Vinatti simulator
+      VINATTI_GATEWAY_URL: ${VINATTI_GATEWAY_URL:-http://host.docker.internal:9011/Zalo/Execute}
+      SIM_ACCESS_KEY: ${SIM_ACCESS_KEY:-gateway-demo-access-2026}
+      SIM_SECRET_KEY: ${SIM_SECRET_KEY:-gateway-demo-secret-2026}
+      SIM_CALLBACK_KEY_ID: ${SIM_CALLBACK_KEY_ID:-callback-key-01}
+      SIM_CALLBACK_SECRET: ${SIM_CALLBACK_SECRET:-callback-demo-secret-0123456789abcdef}
+
     depends_on:
       mysql-db:
         condition: service_healthy # chỉ bật app khi mysql đã hoàn toàn sẵn sàng
 
-volumes:
+volumes:  
   cinema_mysql_data:

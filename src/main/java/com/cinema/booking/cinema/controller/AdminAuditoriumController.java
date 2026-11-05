@@ -1,5 +1,6 @@
 package com.cinema.booking.cinema.controller;
 
+import com.cinema.booking.cinema.dto.UpdateAuditoriumRequest;
 import com.cinema.booking.cinema.dto.AuditoriumRequest;
 import com.cinema.booking.cinema.dto.AuditoriumResponse;
 import com.cinema.booking.cinema.dto.SeatResponse;
@@ -52,7 +53,7 @@ public class AdminAuditoriumController {
     @PutMapping("/{id}")
     public ResponseEntity<AuditoriumResponse> updateAuditorium(
             @PathVariable Long id,
-            @Valid @RequestBody AuditoriumRequest request
+            @Valid @RequestBody UpdateAuditoriumRequest request
     ) {
         // gọi service cập nhật và trả về HTTP 200 ok cùng thông tin phòng sau khi đổi
         return ResponseEntity.ok(auditoriumService.updateAuditorium(id, request));

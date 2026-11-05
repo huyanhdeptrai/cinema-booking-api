@@ -365,7 +365,8 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"Đặt vé thành công và lưu bookingId\", function () {\r\n    pm.response.to.have.status(201);\r\n\r\n    const data = pm.response.json();\r\n    pm.expect(data.id).to.exist;\r\n\r\n    pm.collectionVariables.set(\"bookingId\", data.id);\r\n});\r\n\r\npm.test(\"Hai ghế có tổng tiền 180000\", function () {\r\n    const data = pm.response.json();\r\n\r\n    pm.expect(data.items).to.have.lengthOf(2);\r\n    pm.expect(Number(data.totalAmount)).to.eql(180000);\r\n});"
+                  "pm.test(\"Đặt vé thành công và lưu bookingId\", function () {\r\n    pm.response.to.have.status(201);\r\n\r\n    const data = pm.response.json();\r\n    pm.expect(data.id).to.exist;\r\n\r\n    pm.collectionVariables.set(\"bookingId\", data.id);\r\n});\r\n\r\npm.test(\"Hai ghế có tổng tiền 180000\", function () {\r\n    const data = pm.response.json();\r\n\r\n    pm.expect(data.items).to.have.lengthOf(2);\r\n    pm.expect(Number(data.totalAmount)).to.eql(180000);\r\n});",
+                  "\r\n    if (data.bookingCode) pm.collectionVariables.set(\"bookingCode\", data.bookingCode);\r\n    if (data.paymentUrl) {\r\n        pm.collectionVariables.set(\"paymentUrl\", data.paymentUrl);\r\n        console.log(\">>> LINK THANH TOAN: \" + data.paymentUrl);\r\n    }\r\n    if (data.totalAmount) pm.collectionVariables.set(\"transAmount\", String(Math.round(data.totalAmount)));"
                 ]
               }
             }
@@ -566,6 +567,204 @@
           }
         ]
       }
+    },
+    {
+      "name": "05-Vinatti ZMA Callback",
+      "item": [
+        {
+          "name": "Mô phỏng Simulator gọi orderinfo",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const secret = pm.collectionVariables.get(\"callbackSecret\") || \"callback-demo-secret-0123456789abcdef\";\r\n",
+                  "const body = pm.request.body.raw;\r\n",
+                  "const hash = CryptoJS.HmacSHA256(body, secret);\r\n",
+                  "const signature = CryptoJS.enc.Base64.stringify(hash);\r\n",
+                  "pm.request.headers.upsert({\r\n",
+                  "    key: \"Authorization\",\r\n",
+                  "    value: \"Bearer \" + signature\r\n",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"orderinfo thành công trả về 00\", function () {\r\n",
+                  "    pm.response.to.have.status(200);\r\n",
+                  "    const data = pm.response.json();\r\n",
+                  "    pm.expect(data.responseCode).to.eql(\"00\");\r\n",
+                  "    pm.expect(data.orderCode).to.eql(pm.collectionVariables.get(\"bookingCode\"));\r\n",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"VNT_ZMA\",\n  \"orderCode\": \"{{bookingCode}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vinatticonnect/v2/orderinfo",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vinatticonnect",
+                "v2",
+                "orderinfo"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mô phỏng Simulator callback THÀNH CÔNG (ordersync 00)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const secret = pm.collectionVariables.get(\"callbackSecret\") || \"callback-demo-secret-0123456789abcdef\";\r\n",
+                  "const body = pm.request.body.raw;\r\n",
+                  "const hash = CryptoJS.HmacSHA256(body, secret);\r\n",
+                  "const signature = CryptoJS.enc.Base64.stringify(hash);\r\n",
+                  "pm.request.headers.upsert({\r\n",
+                  "    key: \"Authorization\",\r\n",
+                  "    value: \"Bearer \" + signature\r\n",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"ordersync thành công trả về ACK 00\", function () {\r\n",
+                  "    pm.response.to.have.status(200);\r\n",
+                  "    const data = pm.response.json();\r\n",
+                  "    pm.expect(data.responseCode).to.eql(\"00\");\r\n",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"VNT_ZMA\",\n  \"responseCode\": \"00\",\n  \"orderCode\": \"{{bookingCode}}\",\n  \"transAmount\": \"{{transAmount}}\",\n  \"transId\": \"TRANS_{{$timestamp}}\",\n  \"transDate\": \"05/11/2026 10:00:00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vinatticonnect/v2/ordersync",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vinatticonnect",
+                "v2",
+                "ordersync"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mô phỏng Simulator callback THẤT BẠI (ordersync 01)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const secret = pm.collectionVariables.get(\"callbackSecret\") || \"callback-demo-secret-0123456789abcdef\";\r\n",
+                  "const body = pm.request.body.raw;\r\n",
+                  "const hash = CryptoJS.HmacSHA256(body, secret);\r\n",
+                  "const signature = CryptoJS.enc.Base64.stringify(hash);\r\n",
+                  "pm.request.headers.upsert({\r\n",
+                  "    key: \"Authorization\",\r\n",
+                  "    value: \"Bearer \" + signature\r\n",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"ordersync thất bại vẫn trả ACK 00\", function () {\r\n",
+                  "    pm.response.to.have.status(200);\r\n",
+                  "    const data = pm.response.json();\r\n",
+                  "    pm.expect(data.responseCode).to.eql(\"00\");\r\n",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"VNT_ZMA\",\n  \"responseCode\": \"01\",\n  \"orderCode\": \"{{bookingCode}}\",\n  \"transAmount\": \"{{transAmount}}\",\n  \"transId\": \"TRANS_{{$timestamp}}\",\n  \"transDate\": \"05/11/2026 10:00:00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vinatticonnect/v2/ordersync",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vinatticonnect",
+                "v2",
+                "ordersync"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "variable": [
@@ -607,6 +806,22 @@
     },
     {
       "key": "seatId2",
+      "value": ""
+    },
+    {
+      "key": "callbackSecret",
+      "value": "callback-demo-secret-0123456789abcdef"
+    },
+    {
+      "key": "bookingCode",
+      "value": ""
+    },
+    {
+      "key": "paymentUrl",
+      "value": ""
+    },
+    {
+      "key": "transAmount",
       "value": ""
     }
   ]

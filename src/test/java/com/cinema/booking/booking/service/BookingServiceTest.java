@@ -5,6 +5,7 @@ import com.cinema.booking.auth.entity.User;
 import com.cinema.booking.auth.repository.UserRepository;
 import com.cinema.booking.booking.dto.BookingRequest;
 import com.cinema.booking.booking.dto.BookingResponse;
+import com.cinema.booking.booking.dto.VinattiBillResponse;
 import com.cinema.booking.booking.entity.Booking;
 import com.cinema.booking.booking.entity.BookingStatus;
 import com.cinema.booking.booking.repository.BookingRepository;
@@ -22,12 +23,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -46,9 +49,16 @@ class BookingServiceTest {
     private ShowtimeSeatRepository showtimeSeatRepository;
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private VinattiGatewayClient vinattiGatewayClient;
 
-    @InjectMocks
     private BookingService bookingService;
+
+    // cố định giờ để test không phụ thuộc lúc chạy
+    private final Clock clock = Clock.fixed(
+            Instant.parse("2026-10-21T03:00:00Z"),
+            ZoneId.of("Asia/Ho_Chi_Minh")
+    );
 
     private User sampleUser;
     private Movie sampleMovie;
@@ -62,6 +72,16 @@ class BookingServiceTest {
     // chạy trước mỗi test case để reset và khởi tạo lại dữ liệu sạch
     @BeforeEach
     void setUp() {
+        // unit test không chạy Spring nên tự truyền clock vào service
+        bookingService = new BookingService(
+                bookingRepository,
+                showtimeRepository,
+                showtimeSeatRepository,
+                userRepository,
+                clock,
+                vinattiGatewayClient
+        );
+
         // giả lập thông tin khách hàng đặt vé
         sampleUser = User.builder()
                 .id(1L)
@@ -88,8 +108,8 @@ class BookingServiceTest {
                 .id(100L)
                 .movie(sampleMovie)
                 .auditorium(sampleAuditorium)
-                .startTime(LocalDateTime.now().plusDays(1)) // hợp lệ vì mai chiếu
-                .endTime(LocalDateTime.now().plusDays(1).plusMinutes(148))
+                .startTime(LocalDateTime.now(clock).plusDays(1)) // hợp lệ vì mai chiếu
+                .endTime(LocalDateTime.now(clock).plusDays(1).plusMinutes(148))
                 .price(BigDecimal.valueOf(100000))
                 .status(ShowtimeStatus.SCHEDULED)
                 .build();
@@ -119,13 +139,17 @@ class BookingServiceTest {
         when(showtimeSeatRepository.findSeatsWithLock(100L, List.of(10L, 11L))).thenReturn(List.of(showtimeSeat1, showtimeSeat2));
         // 4. khi gọi hàm save booking, trả về chính entity booking được truyền vào
         when(bookingRepository.save(any(Booking.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        // 5. giả lập gateway tạo hóa đơn thành công
+        when(vinattiGatewayClient.createBill(any(Booking.class), any(), any()))
+                .thenReturn(new VinattiBillResponse("RET123", "QR123", "https://simulator.example/checkout/xyz"));
 
         // when
         BookingResponse response = bookingService.createBooking("customer@gmail.com", request);
 
         // then
         assertNotNull(response);
-        assertEquals(BookingStatus.CONFIRMED, response.status());
+        assertEquals(BookingStatus.PENDING, response.status());
+        assertEquals("https://simulator.example/checkout/xyz", response.paymentUrl());
 
         // giá 100.000 * 2 ghế = 200.000
         assertEquals(BigDecimal.valueOf(200000), response.totalAmount());
@@ -137,6 +161,7 @@ class BookingServiceTest {
 
         verify(bookingRepository, times(1)).save(any(Booking.class));
         verify(showtimeSeatRepository, times(1)).saveAll(any());
+        verify(vinattiGatewayClient, times(1)).createBill(any(Booking.class), eq("VIETTEL"), any());
     }
 
     // case 2: đặt ghế đã có người đặt -> 409 seat_already booked
@@ -158,6 +183,7 @@ class BookingServiceTest {
 
         // đảm bảo không có đơn đặt vé nào được lưu vào DB khi gặp lỗi
         verify(bookingRepository, never()).save(any());
+        verifyNoInteractions(vinattiGatewayClient);
     }
 
     // case 3 request gửi danh sách ghế bị trùng lặp id
@@ -169,6 +195,7 @@ class BookingServiceTest {
 
         // when then phải ném ngoại lệ appexception ngay từ tầng validate dữ liệu
         assertThrows(AppException.class, () -> bookingService.createBooking("customer@gmail.com", request));
+        verifyNoInteractions(vinattiGatewayClient);
     }
 
     // case 4 đặt vé cho suất chiếu đã bắt đầu hoặc quá giờ
@@ -176,7 +203,7 @@ class BookingServiceTest {
     @DisplayName("Đặt vé thất bại khi suất chiếu đã bắt đầu trong quá khứ")
     void createBooking_ShowtimeAlreadyStarted_ThrowsException() {
         // given sửa giờ bắt đầu của suất chiếu lùi về 1 tiếng trước
-        sampleShowtime.setStartTime(LocalDateTime.now().minusHours(1));
+        sampleShowtime.setStartTime(LocalDateTime.now(clock).minusHours(1));
 
         BookingRequest request = new BookingRequest(100L, List.of(10L));
 
@@ -185,6 +212,7 @@ class BookingServiceTest {
 
         // when then không cho phép đặt vé phim đang chiếu
         assertThrows(AppException.class, () -> bookingService.createBooking("customer@gmail.com", request));
+        verifyNoInteractions(vinattiGatewayClient);
     }
 
     // test case 5 xem vé của người khác, 404 not found
@@ -218,15 +246,27 @@ class BookingServiceTest {
         showtimeSeat1.setBooking(booking);
 
         when(userRepository.findByEmail("customer@gmail.com")).thenReturn(Optional.of(sampleUser));
-        when(bookingRepository.findByIdAndUserId(50L, sampleUser.getId())).thenReturn(Optional.of(booking));
-        when(showtimeSeatRepository.findByBookingId(50L)).thenReturn(List.of(showtimeSeat1));
+        when(bookingRepository.findShowtimeIdByIdAndUserId(50L, sampleUser.getId()))
+                .thenReturn(Optional.of(sampleShowtime.getId()));
+        when(showtimeRepository.findByIdWithLock(sampleShowtime.getId()))
+                .thenReturn(Optional.of(sampleShowtime));
+        when(bookingRepository.findByIdAndUserIdWithLock(50L, sampleUser.getId()))
+                .thenReturn(Optional.of(booking));
+        when(showtimeSeatRepository.findByBookingIdWithLock(50L)).thenReturn(List.of(showtimeSeat1));
 
         // when thực hiện hủy vé
         BookingResponse response = bookingService.cancelBooking("customer@gmail.com", 50L);
 
+        // giữ thứ tự lấy khóa để tránh các luồng chờ ngược nhau
+        var lockOrder = inOrder(bookingRepository, showtimeRepository, showtimeSeatRepository);
+        lockOrder.verify(bookingRepository).findShowtimeIdByIdAndUserId(50L, sampleUser.getId());
+        lockOrder.verify(showtimeRepository).findByIdWithLock(sampleShowtime.getId());
+        lockOrder.verify(bookingRepository).findByIdAndUserIdWithLock(50L, sampleUser.getId());
+        lockOrder.verify(showtimeSeatRepository).findByBookingIdWithLock(50L);
+
         // then
         assertEquals(BookingStatus.CANCELLED, response.status()); // trạng thái đơn đổi sang cancelled
-        assertNotNull(response.cancelledAt()); // phải có mốc thời gian ghi nhận hủy
+        assertEquals(LocalDateTime.now(clock), response.cancelledAt());
 
         // ghế phải được giải phóng: trạng thái quay lại available và xóa liên kết với booking cũ
         assertEquals(ShowtimeSeatStatus.AVAILABLE, showtimeSeat1.getStatus());
@@ -241,7 +281,7 @@ class BookingServiceTest {
     @DisplayName("Không cho phép hủy vé khi suất chiếu đã diễn ra")
     void cancelBooking_AfterStartTime_ThrowsException() {
         // given suất chiếu đã bắt đầu cách đây 10 phút
-        sampleShowtime.setStartTime(LocalDateTime.now().minusMinutes(10));
+        sampleShowtime.setStartTime(LocalDateTime.now(clock).minusMinutes(10));
         Booking booking = Booking.builder()
                 .id(50L)
                 .user(sampleUser)
@@ -250,9 +290,97 @@ class BookingServiceTest {
                 .build();
 
         when(userRepository.findByEmail("customer@gmail.com")).thenReturn(Optional.of(sampleUser));
-        when(bookingRepository.findByIdAndUserId(50L, sampleUser.getId())).thenReturn(Optional.of(booking));
+        when(bookingRepository.findShowtimeIdByIdAndUserId(50L, sampleUser.getId()))
+                .thenReturn(Optional.of(sampleShowtime.getId()));
+        when(showtimeRepository.findByIdWithLock(sampleShowtime.getId()))
+                .thenReturn(Optional.of(sampleShowtime));
+        when(bookingRepository.findByIdAndUserIdWithLock(50L, sampleUser.getId()))
+                .thenReturn(Optional.of(booking));
 
         // when then chặn không cho huỷ vé sau giờ chiếu, ném BookingCannotBeCancelledException
         assertThrows(BookingCannotBeCancelledException.class, () -> bookingService.cancelBooking("customer@gmail.com", 50L));
+    }
+
+    @Test
+    @DisplayName("Không cho đặt vé đúng thời điểm suất chiếu bắt đầu")
+    void createBooking_AtStartTime_ThrowsException() {
+        // đúng giờ bắt đầu cũng phải từ chối, không chỉ những suất đã quá giờ
+        sampleShowtime.setStartTime(LocalDateTime.now(clock));
+        when(userRepository.findByEmail(sampleUser.getEmail())).thenReturn(Optional.of(sampleUser));
+        when(showtimeRepository.findByIdWithLock(100L)).thenReturn(Optional.of(sampleShowtime));
+
+        AppException exception = assertThrows(AppException.class,
+                () -> bookingService.createBooking(sampleUser.getEmail(), new BookingRequest(100L, List.of(10L))));
+
+        assertEquals("SHOWTIME_ALREADY_STARTED", exception.getCode());
+        verifyNoInteractions(showtimeSeatRepository, bookingRepository, vinattiGatewayClient);
+    }
+
+    @Test
+    @DisplayName("Không cho hủy vé đúng thời điểm suất chiếu bắt đầu")
+    void cancelBooking_AtStartTime_ThrowsException() {
+        // vé chỉ được hủy trước giờ bắt đầu
+        sampleShowtime.setStartTime(LocalDateTime.now(clock));
+        Booking booking = Booking.builder()
+                .id(50L)
+                .user(sampleUser)
+                .showtime(sampleShowtime)
+                .status(BookingStatus.CONFIRMED)
+                .build();
+        when(userRepository.findByEmail(sampleUser.getEmail())).thenReturn(Optional.of(sampleUser));
+        when(bookingRepository.findShowtimeIdByIdAndUserId(50L, sampleUser.getId()))
+                .thenReturn(Optional.of(sampleShowtime.getId()));
+        when(showtimeRepository.findByIdWithLock(sampleShowtime.getId()))
+                .thenReturn(Optional.of(sampleShowtime));
+        when(bookingRepository.findByIdAndUserIdWithLock(50L, sampleUser.getId()))
+                .thenReturn(Optional.of(booking));
+
+        assertThrows(BookingCannotBeCancelledException.class,
+                () -> bookingService.cancelBooking(sampleUser.getEmail(), 50L));
+
+        assertEquals(BookingStatus.CONFIRMED, booking.getStatus());
+        verifyNoInteractions(showtimeSeatRepository);
+    }
+
+    @Test
+    @DisplayName("Booking đã hủy thì không được giải phóng ghế lần nữa")
+    void cancelBooking_AlreadyCancelled_DoesNotTouchSeats() {
+        // giữ mốc hủy cũ và không giải phóng ghế thêm lần nữa
+        LocalDateTime cancelledAt = LocalDateTime.now(clock).minusHours(1);
+        Booking booking = Booking.builder()
+                .id(50L)
+                .user(sampleUser)
+                .showtime(sampleShowtime)
+                .status(BookingStatus.CANCELLED)
+                .cancelledAt(cancelledAt)
+                .build();
+        when(userRepository.findByEmail(sampleUser.getEmail())).thenReturn(Optional.of(sampleUser));
+        when(bookingRepository.findShowtimeIdByIdAndUserId(50L, sampleUser.getId()))
+                .thenReturn(Optional.of(sampleShowtime.getId()));
+        when(showtimeRepository.findByIdWithLock(sampleShowtime.getId()))
+                .thenReturn(Optional.of(sampleShowtime));
+        when(bookingRepository.findByIdAndUserIdWithLock(50L, sampleUser.getId()))
+                .thenReturn(Optional.of(booking));
+
+        assertThrows(BookingCannotBeCancelledException.class,
+                () -> bookingService.cancelBooking(sampleUser.getEmail(), 50L));
+
+        assertEquals(cancelledAt, booking.getCancelledAt());
+        verifyNoInteractions(showtimeSeatRepository);
+    }
+
+    @Test
+    @DisplayName("Không phải chủ booking thì trả lỗi trước khi lấy khóa suất hoặc ghế")
+    void cancelBooking_NotOwner_DoesNotLockShowtimeOrSeats() {
+        // không tìm thấy vé của user thì dừng trước khi lấy khóa
+        when(userRepository.findByEmail(sampleUser.getEmail())).thenReturn(Optional.of(sampleUser));
+        when(bookingRepository.findShowtimeIdByIdAndUserId(50L, sampleUser.getId()))
+                .thenReturn(Optional.empty());
+
+        assertThrows(BookingNotFoundException.class,
+                () -> bookingService.cancelBooking(sampleUser.getEmail(), 50L));
+
+        verify(bookingRepository, never()).findByIdAndUserIdWithLock(any(), any());
+        verifyNoInteractions(showtimeRepository, showtimeSeatRepository);
     }
 }

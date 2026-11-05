@@ -85,13 +85,17 @@ Các biến sau trong `.env` được `compose.yaml` sử dụng:
 | `DB_USER` | `cinema_user` | User database của ứng dụng |
 | `DB_PASSWORD` | `cinema_password` | Mật khẩu user database |
 | `DB_ROOT_PASSWORD` | `rootpassword` | Mật khẩu root MySQL |
-| `JWT_SECRET` | Chuỗi mẫu có sẵn | Khóa ký JWT; tối thiểu 32 byte UTF-8 |
+| `JWT_SECRET` | Chuỗi mẫu cần thay | Khóa ký JWT; tạo riêng cho mỗi môi trường, tối thiểu 32 byte UTF-8 |
 
 Khi đổi `APP_PORT`, thay cổng trong các URL ở trên. API trong container luôn kết nối MySQL qua `mysql-db:3306`; `DB_PORT` chỉ đổi cổng truy cập từ máy host.
 
-`.env` phục vụ Docker Compose; Spring Boot chạy trực tiếp bằng IDE/Maven không tự nạp file này. Hiện `.gitignore` chưa bỏ qua `.env`, vì vậy cần thêm quy tắc ignore trước khi lưu bí mật cá nhân vào file.
+`.env` phục vụ Docker Compose; Spring Boot chạy trực tiếp bằng IDE/Maven không tự nạp file này. File `.env` đã được bỏ qua trong `.gitignore`; `.env.example` cung cấp cấu hình mẫu để tạo file môi trường trên mỗi máy.
 
-Các giá trị mẫu dành cho phát triển. Trước khi triển khai thực tế, cần thay mật khẩu, khóa JWT, xử lý tài khoản admin mẫu và cấu hình profile phù hợp. Hiện ứng dụng mặc định bật `dev`, bao gồm SQL logging và khóa JWT dự phòng; thời hạn JWT mặc định là 24 giờ.
+Các giá trị mẫu dành cho phát triển. Thay `JWT_SECRET` trong `.env` bằng khóa ngẫu nhiên riêng trước khi chạy. Compose yêu cầu `DB_PASSWORD`, `DB_ROOT_PASSWORD` và `JWT_SECRET` có giá trị; thiếu hoặc rỗng sẽ báo lỗi khi đọc cấu hình. Với database đã có dữ liệu trong volume, thay biến mật khẩu không tự đổi mật khẩu trong MySQL.
+
+Khi không chọn profile, ứng dụng dùng `dev`, gồm SQL logging và khóa JWT dự phòng dành cho local. Compose chọn rõ profile `docker`, tắt SQL logging và lấy khóa JWT từ môi trường; thời hạn JWT là 24 giờ. Trước khi triển khai thực tế, cần thay mật khẩu mẫu và xử lý tài khoản admin mẫu.
+
+Dockerfile build JAR bằng Maven/JDK ở stage đầu, rồi chạy bằng JRE với user `appuser` ở stage cuối. File `.dockerignore` loại `.env`, kết quả build local và cấu hình IDE khỏi build context. Có thể kiểm tra cấu hình trước khi chạy bằng `docker compose config --quiet`.
 
 ## Chạy local bằng Maven hoặc IDE
 
@@ -210,12 +214,14 @@ Chạy lần lượt các folder Auth → Admin Management → Public Discovery 
 
 Hai tham số `movieId`, `date` của API tra cứu suất chiếu đều tùy chọn. Nếu không truyền ngày, API lấy ngày hiện tại tại `Asia/Ho_Chi_Minh` và chỉ trả suất `SCHEDULED`. Trường `startTime` khi tạo suất dùng định dạng `YYYY-MM-DDTHH:mm:ss` và phải ở tương lai.
 
-API cập nhật phòng hiện chỉ đổi tên; `rowCount` và `seatsPerRow` vẫn bắt buộc trong request nhưng chưa được áp dụng khi cập nhật. Chi tiết request/response xem tại Swagger UI.
+API cập nhật phòng chỉ hỗ trợ đổi tên và nhận trường `name` (không được để trống, tối đa 100 ký tự). Kích thước phòng và sơ đồ ghế được xác định khi tạo phòng. Chi tiết request/response xem tại Swagger UI.
 
 ## Giao dịch và chống đặt trùng
 
 - Tạo suất chiếu khóa phòng bằng `PESSIMISTIC_WRITE` trước khi kiểm tra trùng lịch và tạo kho ghế riêng cho suất.
 - Đặt vé chạy trong một transaction: khóa suất chiếu, khóa các ghế theo thứ tự `seatId` tăng dần, kiểm tra ghế rồi tạo booking và cập nhật trạng thái ghế.
+- Hủy vé lấy ID suất chiếu của booking thuộc khách hàng hiện tại, sau đó khóa suất chiếu, đọc và khóa booking, kiểm tra điều kiện hủy rồi khóa các ghế theo thứ tự `seatId` tăng dần trước khi giải phóng. Booking đã hủy bị từ chối trước khi cập nhật ghế.
+- Admin hủy suất chiếu cũng khóa suất trước khi đổi trạng thái sang `CANCELLED`. Yêu cầu đặt vé lấy được khóa sau khi thao tác hủy suất đã commit sẽ bị từ chối; các booking đã tạo trước đó chưa được tự động hủy.
 - Nếu bất kỳ ghế nào không hợp lệ hoặc đã được đặt, toàn bộ giao dịch đặt vé bị rollback.
 - Khóa ở mức suất chiếu khiến các giao dịch đặt vé cùng suất được xử lý tuần tự, kể cả khi chọn ghế khác nhau.
 
@@ -241,7 +247,7 @@ PowerShell:
 # Unit test và MockMvc, không cần MySQL hoặc Docker
 .\mvnw.cmd "-Dtest=*ServiceTest,AuthControllerTest" test
 
-# Integration test: hai yêu cầu đồng thời đặt cùng một ghế
+# Integration test: tranh ghế, hủy booking và hủy suất đồng thời
 .\mvnw.cmd "-Dtest=BookingConcurrencyIntegrationTest" test
 
 # Toàn bộ test
@@ -250,9 +256,11 @@ PowerShell:
 
 Với Bash, thay `.\mvnw.cmd` bằng `./mvnw`.
 
-`BookingConcurrencyIntegrationTest` cần Docker đang chạy và dùng MySQL container riêng qua Testcontainers; test kiểm tra đúng một booking thành công, một yêu cầu bị từ chối và một booking được lưu. Lần đầu chạy cần tải image `mysql:8.0`.
+`BookingConcurrencyIntegrationTest` cần Docker đang chạy và dùng MySQL container riêng qua Testcontainers. Test đặt vé kiểm tra 2, 10 và 50 khách khác nhau tranh cùng một ghế chỉ tạo một booking; lỗi ngoài xung đột ghế được đưa về luồng test qua `Future.get()`. Test hủy vé kiểm tra hai yêu cầu hủy cùng booking chỉ thành công một lần; sau khi người khác đặt lại ghế, thử hủy booking cũ bị từ chối và ghế vẫn thuộc booking mới.
 
-`CinemaBookingApiApplicationTests` hiện chưa import cấu hình Testcontainers, nên chạy toàn bộ suite còn cần database theo cấu hình ứng dụng (mặc định MySQL local ở cổng `3306`). Dockerfile dùng `-DskipTests` khi build image; build thành công chưa xác nhận các test đã chạy.
+Hai test đặt vé đồng thời với hủy suất chủ động giữ transaction đầu tiên chưa commit để kiểm tra thao tác thứ hai phải chờ: admin hủy trước thì đặt vé bị từ chối; đặt vé trước thì booking hoàn tất trước khi suất bị hủy. Theo nghiệp vụ hiện tại, booking có trước vẫn được giữ. Các test này chưa triển khai thanh toán. Lần đầu chạy cần tải image `mysql:8.0`.
+
+`CinemaBookingApiApplicationTests` cũng import cấu hình Testcontainers và dùng MySQL container riêng, nên không cần MySQL local để chạy các test này; Docker phải đang chạy. Dockerfile dùng `-DskipTests` khi build image; build thành công chưa xác nhận các test đã chạy.
 
 ## Cấu trúc mã nguồn
 
@@ -268,6 +276,7 @@ src/main/java/com/cinema/booking/
 src/main/resources/
 ├── application.properties
 ├── application-dev.properties
+├── application-docker.properties
 └── db/migration/  # V1–V5: schema và tài khoản admin mẫu
 
 src/test/         # Unit, MockMvc, context và concurrency test
